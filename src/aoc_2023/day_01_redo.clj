@@ -17,8 +17,6 @@
   sample-data
 ;; => ["1abc2" "pqr3stu8vwx" "a1b2c3d4e5f" "treb7uchet"]
 
-  (map #(re-seq #"\d" %) sample-data))
-;; => (("1" "2") ("3" "8") ("1" "2" "3" "4" "5") ("7"))
 
 (defn first-last->digit
   "takes a seq of strings of single digits and returns an integer or zero in case of error"
@@ -116,43 +114,52 @@
            :ns aoc-2023.day-01-redo,
            :name find-hits})
 
-(defn normalize-words [input]
-  (loop [s input
-         acc {}
-         digits digit-text->number]
-    (let [digit (first digits)]
-      (cond
-        (empty? digits)  acc
-        (seq? (re-seq (re-pattern (first digit)) s)) (let [hits (re-seq (re-pattern (first digit)) s)
-                                                           hits->digits (map #(digit-text->number %) hits)
-                                                           hit-map-idxs (find-hits s hits)]
-                                                       (println [s hits hits->digits hit-map-idxs])
-                                                       (recur s (conj acc (zipmap hit-map-idxs hits->digits)) (rest digits)))
-        :else (recur s acc (rest digits))))))
+(defn normalize-words
+  "string input returns {index, digit} for one - nine"
+  {:malli/schema [:=> [:cat string?] [:map-of :int :string]]
 
+   :test (fn [] (and (is (= (normalize-words "xtwone3four") {1 "2", 3 "1", 7 "4"}))
+                     (is (= (normalize-words nil) nil))
+                     (is (= (normalize-words "") nil))))}
+  [input]
+  (if (seq input)
+    (loop [s input
+           acc {}
+           digits digit-text->number]
+      (let [digit (first digits)]
+        (cond
+          (empty? digits)  acc
+          (seq? (re-seq (re-pattern (first digit)) s)) (let [hits (re-seq (re-pattern (first digit)) s)
+                                                             hits->digits (map #(digit-text->number %) hits)
+                                                             hit-map-idxs (find-hits s hits)]
+                                                         (recur s (conj acc (zipmap hit-map-idxs hits->digits)) (rest digits)))
+          :else (recur s acc (rest digits)))))
+    nil))
+
+(keys digit-text->number)
+(for [d ] )
 (comment (run-tests)
          (dev/start! {:report (pretty/reporter)})
          (pp/pprint (mi/check))
-         (pp/pprint (map keys (vals (m/function-schemas)))))
+         (pp/pprint (map keys (vals (m/function-schemas))))
+         )
 (comment
+  (normalize-words nil)
+  (normalize-words "")
   (map normalize-words sample-data2)
 ;; => ({0 "2", 4 "9"} {7 "3", 4 "2", 0 "8"} {7 "3", 3 "1"} {1 "2", 3 "1", 7 "4"} {10 "7", 5 "8", 1 "9"} {3 "8", 1 "1"} {6 "6"})
 
-  (map normalize-words sample-data))
-;; => ({} {} {} {})
+  (map normalize-words sample-data)
+  ;; => ({} {} {} {})
+  )
 
 (defn normalize-digits [input]
-  (loop [s input
-         acc {}
-         digits (re-seq #"\d" input)]
-    (let [digit (first digits)]
-      (cond
-        (empty? digits) acc
-        (seq? (re-seq (re-pattern digit) s)) (let [hits (re-seq (re-pattern digit) s)
-                                                   hit-map-idxs (find-hits s hits)]
-                                               (recur s (conj acc (zipmap hit-map-idxs hits)) (rest digits)))
+  (if-let [hits (re-seq #"\d" input)]
+    (let [idxs (map #(str/index-of input %) hits)
+          interleaved (apply assoc {} (interleave idxs hits))]
+      interleaved)
+    {}))
 
-        :else (recur s acc (rest digits))))))
 
 (comment
   (map normalize-digits sample-data2)
