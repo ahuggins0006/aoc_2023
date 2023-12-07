@@ -17,6 +17,20 @@
   sample-data
 ;; => ["1abc2" "pqr3stu8vwx" "a1b2c3d4e5f" "treb7uchet"]
 
+  (map #(re-seq #"\d" %) sample-data))
+;; => (("1" "2") ("3" "8") ("1" "2" "3" "4" "5") ("7"))
+
+
+(def idxs (map #(str/index-of "1two3" %) (re-seq #"\d" "1two3")))
+;; => (0 4)
+(apply assoc {} (interleave idxs (re-seq #"\d" "1two3")))
+
+
+;; => {0 "1", 4 "3"}
+;; => 
+;; => (0 "1" 4 "3")
+
+;; => {0 "1", 4 "3"}
 
 (defn first-last->digit
   "takes a seq of strings of single digits and returns an integer or zero in case of error"
@@ -136,31 +150,102 @@
           :else (recur s acc (rest digits)))))
     nil))
 
-(keys digit-text->number)
-(for [d ] )
+
+(defn find-all-idxs
+  "takes input string along with targets to produce a map from the target's idx in input string to the target itself"
+  ;; (find-all-idxs " eight5one43nmkxdseight5 " '(" 5 " " 5 ")) ;; => {5 " 5 ", 22 " 5 "}
+  {:malli/schema [:=> [:cat :string [:sequential [:string]]] [:map-of int? string?]]
+   :test (fn [] (and (is (= (find-all-idxs "eight5one43nmkxdseight5" '("5" "5")) {5 "5", 22 "5"}))
+                     (is (= (find-all-idxs "eight5one43nmkxdseight5" nil) {}))
+                     (is (= (find-all-idxs "eight5one43nmkxdseight5" []) {}))
+                     (is (= (find-all-idxs "eight5one43nmkxdseight5" '(nil "5")) {}))
+                     (is (= (find-all-idxs "eight5one43nmkxdseight5" '("A" "5")) {}))))}
+
+  [input targets]
+  (loop [t targets
+         ctr (zipmap t (repeat (count t) 0)) ;; account for duplicate hits
+         acc {}]
+    (let [head (first t)
+          from-idx (ctr head)]
+      (cond
+        (empty? t) acc
+        (not (and head from-idx)) acc
+        (not (str/index-of input head from-idx)) acc
+        :else (recur (rest t)
+                     (assoc ctr head (inc (str/index-of input head from-idx)))
+                     (conj acc {(str/index-of input head from-idx) head}))))))
+
+(comment (find-all-idxs "eight5one43nmkxdseight5" '("5" "5"))
+;; => {5 "5", 22 "5"}
+         (find-all-idxs "555" '("5" "5" "5"))
+;; => {0 "5", 1 "5", 2 "5"}
+         (find-all-idxs "eight5one43nmkxdseight5" '(nil "5")))
+
+
+(defn digitize
+  "string input returns {index, digit} for one - nine"
+  {:malli/schema [:=> [:cat string?] [:map-of :int :string]]
+
+   :test (fn [] (and (is (= (digitize "xtwone3four") {1 "2", 3 "1", 7 "4"}))
+                     (is (= (digitize nil) {}))
+                     (is (= (digitize "") {}))))}
+  [input]
+  (cond
+    (nil? input) {}
+    (empty? input) {}
+    :else (let [input input
+                only-keys (keys digit-text->number)
+                only-vals (vals digit-text->number)
+                hits (flatten (remove nil? (for [d (concat only-keys only-vals)]
+                                             (re-seq (re-pattern d) input))))
+                idxs (find-all-idxs input hits)
+
+                words->digits  (for [i idxs] (if (not (re-find #"\d" (second  i)))
+                                               {(first i) (digit-text->number (second i))}
+                                               {(first i) (second i)}))]
+
+            (apply merge words->digits))))
+
+(vals {:x "x"})
+(first (keys {:x "x"}))
+(digitize "two55")
+;; => {0 "2", 3 "5", 4 "5"}
+(apply merge (digitize "two55"))
+(not (re-find #"\d" "two"))
+
+(for [i {0 "two", 3 5, 4 5}] i)
+(comment
+  (digitize nil)
+  (digitize "")
+  (map digitize sample-data2)
+;; => ({0 "2", 4 "9"} {7 "3", 4 "2", 0 "8"} {7 "3", 3 "1"} {1 "2", 3 "1", 7 "4"} {10 "7", 5 "8", 1 "9"} {3 "8", 1 "1"} {6 "6"})
+
+  (map digitize sample-data)
+  )
+
+(defn normalize-digits
+  "string input returns {index, digit} for one - nine"
+  {:malli/schema [:=> [:cat string?] [:map-of :int :string]]
+
+   :test (fn [] (and (is (= (normalize-digits "xtwone3four") {6 "3"}))
+                     (is (= (normalize-digits nil) {}))
+                     (is (= (normalize-digits "") {}))))}
+  [input]
+  (if-let [hits (re-seq #"\d" input)]
+    (let [idxs (find-all-idxs input hits)]
+      (println hits)
+      idxs)
+    {}))
+
+(map digitize ["eight5one43nmkxdseight5"])
+;; => ({0 "8", 17 "8", 6 "1", 10 "3", 5 "5", 22 "5", 9 "4"})
+
+(normalize-digits "555")
+
 (comment (run-tests)
          (dev/start! {:report (pretty/reporter)})
          (pp/pprint (mi/check))
-         (pp/pprint (map keys (vals (m/function-schemas))))
-         )
-(comment
-  (normalize-words nil)
-  (normalize-words "")
-  (map normalize-words sample-data2)
-;; => ({0 "2", 4 "9"} {7 "3", 4 "2", 0 "8"} {7 "3", 3 "1"} {1 "2", 3 "1", 7 "4"} {10 "7", 5 "8", 1 "9"} {3 "8", 1 "1"} {6 "6"})
-
-  (map normalize-words sample-data)
-  ;; => ({} {} {} {})
-  )
-
-(defn normalize-digits [input]
-  (if-let [hits (re-seq #"\d" input)]
-    (let [idxs (map #(str/index-of input %) hits)
-          interleaved (apply assoc {} (interleave idxs hits))]
-      interleaved)
-    {}))
-
-
+         (pp/pprint (map keys (vals (m/function-schemas)))))
 (comment
   (map normalize-digits sample-data2)
 ;; => ({3 "1"} {} {6 "2"} {6 "3"} {0 "4", 15 "2"} {8 "2", 9 "3", 10 "4"} {0 "7"})
@@ -170,22 +255,25 @@
 ;; => 23
 )
 
+(map (comp #(apply str %) vals #(sort-by key < %) digitize) sample-data2)
+;; => (({0 "2"} {4 "9"} {3 "1"}) ({7 "3"} {4 "2"} {0 "8"}) ({7 "3"} {3 "1"} {6 "2"}) ({1 "2"} {3 "1"} {7 "4"} {6 "3"}) ({10 "7"} {5 "8"} {1 "9"} {15 "2"} {0 "4"}) ({3 "8"} {1 "1"} {9 "3"} {8 "2"} {10 "4"}) ({6 "6"} {0 "7"}))
+
 (defn normalize [input]
-  (apply str (vals (sort-by key < (merge (normalize-words input) (normalize-digits input))))))
+  (map (comp #(apply str %) vals #(sort-by key < %) digitize) input))
 
 (comment
-  (map normalize ["eight5one43nmkxdseight5"])
+  (normalize ["eight5one43nmkxdseight5"])
 ;; => ("8514385")
 
-  (solution1 (map normalize ["eight5one43nmkxdseight5"]))
+  (solution1 (normalize ["eight5one43nmkxdseight5"]))
 ;; => 85
 
-  (solution1 (map normalize ["twotthreewo22"])))
+  (solution1 (normalize ["twotthreewo22"])))
 ;; => 22
 
 (defn solution2 [input]
   (->> input
-       (map normalize)
+       normalize
        solution1
        )
   )
