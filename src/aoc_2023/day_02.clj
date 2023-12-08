@@ -60,8 +60,7 @@ a-sample;; => "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
     (loop [c colors
            possible? true]
       (if (or (not possible?) (empty? c)) possible?
-          (do
-            (recur (rest c) (if (<= ((first c) game-map) ((first c) requirements)) true false)))))))
+          (recur (rest c) (if (<= ((first c) game-map) ((first c) requirements)) true false))))))
 
 (possible-game?  {:red 20 :green 13 :blue 14} a-game-map-sample)
 ;; => true
@@ -74,7 +73,7 @@ a-sample;; => "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
 (loop [c colors
        acc false]
   (if (empty? c) acc
-      (recur (rest c) (if (< ((first c) a-game-map-sample) ((first c) {:red 12 :green 13 :blue 14})) true false))))
+      (recur (rest c) (if (<= ((first c) a-game-map-sample) ((first c) {:red 12 :green 13 :blue 14})) true false))))
 
 (for [c colors]
   (println c)
@@ -103,3 +102,29 @@ a-sample;; => "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
 
 (solution-1 {:red 12 :green 13 :blue 14} input-data)
 ;; => 2348
+
+;;part 2
+
+(map game-string->game-map sample-data)
+;; => ({:game 1, :red 4, :green 2, :blue 6} {:game 2, :red 1, :green 3, :blue 4} {:game 3, :red 20, :green 13, :blue 6} {:game 4, :red 14, :green 3, :blue 15} {:game 5, :red 6, :green 3, :blue 2})
+
+(def experiment-2 (map game-string->game-map sample-data))
+
+(defn game-cubed [{:keys [red green blue] }]
+  (* red green blue)
+  )
+
+(game-cubed (first experiment-2))
+;; => 48
+(map game-cubed experiment-2)
+;; => (48 12 1560 630 36)
+
+(apply + '(48 12 1560 630 36))
+;; => 2286
+
+(->> sample-data
+     (map (comp game-cubed game-string->game-map))
+     (apply +));; => 2286
+(->> input
+     (map (comp game-cubed game-string->game-map))
+     (apply +))
